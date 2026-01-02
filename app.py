@@ -54,7 +54,7 @@ def load_channels() -> List[str]:
 
     df = pd.read_excel(CHANNEL_XLSX, usecols=[0])
     values = df.iloc[:, 0].dropna().tolist()
-    values.append("二门诊")
+    # values.append("二门诊")
     _channel_cache = values
     return _channel_cache
 
@@ -63,20 +63,21 @@ def parse_text_lines(text_lines: List[str], channels: List[str]) -> List[Dict[st
     parsed: List[Dict[str, str]] = []
     for line in text_lines:
         item: Dict[str, str] = {}
-        split_index = 0
-        for i, char in enumerate(line):
-            if i >= 8:
-                split_index = i
-                break
-            if not (char.isdigit() or char == "."):
-                split_index = i
-                break
+        split_index = 8
+        # for i, char in enumerate(line):
+        #     if i >= 8:
+        #         split_index = i
+        #         break
+        #     if not (char.isdigit() or char == "."):
+        #         split_index = i
+        #         break
         num_part = line[:split_index]
         chinese_part = line[split_index:]
         item["日期"] = num_part
-
+        vaild = False
         for split_word in channels:
             if split_word in chinese_part:
+                vaild = True
                 parts = chinese_part.split(split_word)
                 if len(parts) == 2:
                     part1 = parts[0]
@@ -86,6 +87,8 @@ def parse_text_lines(text_lines: List[str], channels: List[str]) -> List[Dict[st
                     item["渠道"] = part2
                     item["备注/意向"] = part3
                     break
+        if not vaild:
+            continue
         parsed.append(item)
     return parsed
 
@@ -97,9 +100,9 @@ def run_ocr_on_image_bytes(image_bytes: bytes, channels: List[str]) -> List[Dict
 
     try:
         out = ocr_model.ocr(tmp_path)
-        filtered = [item for item in out if item.get("score", 0) >= 0.4]
+        filtered = [item for item in out if item.get("score", 0) >= 0.2]
         filtered = [item for item in filtered if item.get("text", "") and item["text"][0].isdigit()]
-        filtered = [item for item in filtered if item.get("text", "") and "\u4e00" <= item["text"][-1] <= "\u9fa5"]
+        # filtered = [item for item in filtered if item.get("text", "") and "\u4e00" <= item["text"][-1] <= "\u9fa5"]
         text_lines = [item["text"] for item in filtered]
         return parse_text_lines(text_lines, channels)
     finally:
