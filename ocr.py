@@ -18,7 +18,7 @@ first_col_values += ['二门诊']
 # print(first_col_values)
 
 img_fp = 'image.jpg'
-ocr = CnOcr()  # 所有参数都使用默认值
+ocr = CnOcr(root="./")  # 所有参数都使用默认值
 out = ocr.ocr(img_fp)
 
 # print(out)
