@@ -13,7 +13,10 @@ DB_PATH = os.path.join(BASE_DIR, "data.db")
 CHANNEL_XLSX = os.path.join(BASE_DIR, "渠道明细.xlsx")
 
 app = Flask(__name__, static_folder="static", static_url_path="")
-ocr_model = CnOcr(root="./")  # instantiate once to avoid reload on every request
+# 指定检测模型权重，识别模型沿用默认
+ocr_model = CnOcr(
+    det_model_fp=os.path.join(BASE_DIR, "ppocr", "ch_PP-OCRv5_det", "ch_PP-OCRv5_det_infer.onnx"),
+)
 
 
 # ---------- DB helpers ----------
