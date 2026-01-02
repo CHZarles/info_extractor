@@ -133,6 +133,29 @@ def api_ocr():
     return jsonify({"rows": all_rows})
 
 
+@app.route("/api/channels", methods=["GET", "POST"])
+def api_channels():
+    if request.method == "GET":
+        exists = os.path.exists(CHANNEL_XLSX)
+        return jsonify({"exists": exists, "path": CHANNEL_XLSX if exists else ""})
+
+    # POST upload
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "Empty filename"}), 400
+    # basic extension guard
+    if not file.filename.lower().endswith(".xlsx"):
+        return jsonify({"error": "Only .xlsx allowed"}), 400
+
+    file.save(CHANNEL_XLSX)
+    # reset cache
+    global _channel_cache
+    _channel_cache = []
+    return jsonify({"status": "ok", "path": CHANNEL_XLSX})
+
+
 @app.route("/api/contacts", methods=["GET"])
 def api_list_contacts():
     with get_db_conn() as conn:

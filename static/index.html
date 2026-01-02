@@ -116,6 +116,10 @@
       color: var(--muted);
       font-size: 0.9rem;
     }
+    .hint {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
   </style>
 </head>
 <body>
@@ -141,6 +145,12 @@
           显示数据库数据
         </label>
       </div>
+      <div class="controls">
+        <label for="channel-file">渠道明细.xlsx</label>
+        <input id="channel-file" type="file" accept=".xlsx">
+        <button class="ghost" id="btn-upload-channel">上传渠道明细</button>
+        <span class="hint" id="channel-info">加载渠道文件状态获取中...</span>
+      </div>
 
       <div class="table-wrap">
         <table>
@@ -164,6 +174,7 @@
   <script>
     const tbody = document.getElementById('table-body');
     const statusLabel = document.getElementById('status');
+    const channelInfo = document.getElementById('channel-info');
 
     const state = {
       dbRows: [],      // 来自数据库的持久数据
@@ -252,6 +263,16 @@
       renderRows();
     }
 
+    async function loadChannelInfo() {
+      const resp = await fetch('/api/channels');
+      const data = await resp.json();
+      if (data.exists) {
+        channelInfo.textContent = `已存在渠道文件：${data.path}`;
+      } else {
+        channelInfo.textContent = '当前无渠道文件，请上传渠道明细.xlsx';
+      }
+    }
+
     document.getElementById('btn-ocr').onclick = async () => {
       const files = document.getElementById('images').files;
       if (!files.length) {
@@ -326,6 +347,25 @@
       setStatus(`导出完成，共 ${visibleRows.length} 条`);
     };
 
+    document.getElementById('btn-upload-channel').onclick = async () => {
+      const fileInput = document.getElementById('channel-file');
+      if (!fileInput.files.length) {
+        alert('请选择渠道明细.xlsx 文件');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      setStatus('正在上传渠道明细...');
+      const resp = await fetch('/api/channels', { method: 'POST', body: formData });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setStatus(data.error || '上传失败');
+        return;
+      }
+      await loadChannelInfo();
+      setStatus('渠道明细已更新，OCR 将使用新渠道列表');
+    };
+
     document.getElementById('keyword').oninput = (e) => {
       state.keyword = e.target.value;
       renderRows();
@@ -336,7 +376,10 @@
       renderRows();
     };
 
-    document.addEventListener('DOMContentLoaded', loadContacts);
+    document.addEventListener('DOMContentLoaded', () => {
+      loadContacts();
+      loadChannelInfo();
+    });
   </script>
 </body>
 </html>
