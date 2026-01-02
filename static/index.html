@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>联系人信息提取</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: radial-gradient(circle at 20% 20%, #f4f7ff 0, #f7f9ff 35%, #eef2ff 100%);
+      --card: #ffffff;
+      --accent: #2e6cf6;
+      --accent-2: #14b8a6;
+      --border: #e0e7ff;
+      --text: #0f172a;
+      --muted: #475569;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+    .subtitle {
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 24px 48px rgba(46, 108, 246, 0.08);
+      padding: 20px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .controls label {
+      font-weight: 500;
+      color: var(--muted);
+    }
+    input[type="file"] {
+      padding: 10px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      background: #f8fafc;
+    }
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.2s ease;
+    }
+    button:active { transform: translateY(1px); }
+    .primary { background: var(--accent); color: #fff; box-shadow: 0 10px 24px rgba(46,108,246,0.25); }
+    .ghost { background: #eef2ff; color: var(--accent); }
+    .success { background: var(--accent-2); color: #fff; }
+    .danger { background: #ef4444; color: #fff; }
+    .table-wrap {
+      margin-top: 12px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    thead { background: #f8fafc; }
+    th { text-align: left; font-size: 0.95rem; color: var(--muted); }
+    td input {
+      width: 100%;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.95rem;
+    }
+    td .pill {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.8rem;
+      border: 1px solid var(--border);
+    }
+    .pill-db { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+    .pill-new { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+    .status {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>联系人信息提取与管理</h1>
+    <p class="subtitle">上传多张图片，一键 OCR 解析，编辑后保存，随时导出 Excel。</p>
+
+    <div class="card">
+      <div class="controls">
+        <label for="images">选择图片（可多选）</label>
+        <input id="images" type="file" accept="image/*" multiple>
+        <button class="primary" id="btn-ocr">解析图片</button>
+        <button class="success" id="btn-save">保存加载项到数据库</button>
+        <button class="ghost" id="btn-add">新增空行</button>
+        <button class="ghost" id="btn-refresh">重新加载数据库</button>
+        <button class="ghost" id="btn-export">导出 Excel</button>
+      </div>
+      <div class="controls">
+        <label for="keyword">筛选关键词</label>
+        <input id="keyword" type="text" placeholder="按日期/微信名/渠道/备注过滤" style="flex:1; min-width: 240px;">
+        <label style="display:flex; align-items:center; gap:6px;">
+          <input id="toggle-db" type="checkbox" checked>
+          显示数据库数据
+        </label>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 80px;">来源</th>
+              <th style="width: 120px;">日期</th>
+              <th style="width: 160px;">微信名</th>
+              <th style="width: 160px;">渠道</th>
+              <th>备注/意向</th>
+              <th style="width: 90px;">操作</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+      <div class="status" id="status">准备就绪</div>
+    </div>
+  </div>
+
+  <script>
+    const tbody = document.getElementById('table-body');
+    const statusLabel = document.getElementById('status');
+
+    const state = {
+      dbRows: [],      // 来自数据库的持久数据
+      tempRows: [],    // 新加载/手工新增但尚未保存的数据
+      showDb: true,
+      keyword: '',
+    };
+
+    function setStatus(msg) {
+      statusLabel.textContent = msg;
+    }
+
+    function createCell(name, rowRef) {
+      const td = document.createElement('td');
+      const input = document.createElement('input');
+      input.name = name;
+      input.value = rowRef[name] || '';
+      input.oninput = () => {
+        rowRef[name] = input.value;
+      };
+      td.appendChild(input);
+      return td;
+    }
+
+    function createRow(rowRef, source) {
+      const tr = document.createElement('tr');
+      if (rowRef.id) tr.dataset.id = rowRef.id;
+      tr.dataset.source = source;
+      const sourceCell = document.createElement('td');
+      const badge = document.createElement('span');
+      badge.className = source === 'db' ? 'pill pill-db' : 'pill pill-new';
+      badge.textContent = source === 'db' ? '数据库' : '加载项';
+      sourceCell.appendChild(badge);
+      tr.appendChild(sourceCell);
+
+      tr.appendChild(createCell('日期', rowRef));
+      tr.appendChild(createCell('微信名', rowRef));
+      tr.appendChild(createCell('渠道', rowRef));
+      tr.appendChild(createCell('备注/意向', rowRef));
+
+      const actions = document.createElement('td');
+      const delBtn = document.createElement('button');
+      delBtn.textContent = source === 'db' ? '删库' : '删新';
+      delBtn.className = 'danger';
+      delBtn.onclick = async () => {
+        if (source === 'db' && rowRef.id) {
+          await fetch(`/api/contacts/${rowRef.id}`, { method: 'DELETE' });
+          state.dbRows = state.dbRows.filter(r => r.id !== rowRef.id);
+          setStatus('已从数据库删除一条记录');
+        } else {
+          state.tempRows = state.tempRows.filter(r => r !== rowRef);
+          setStatus('已删除新加载的数据');
+        }
+        renderRows();
+      };
+      actions.appendChild(delBtn);
+      tr.appendChild(actions);
+      return tr;
+    }
+
+    function getFilteredRows() {
+      const keyword = state.keyword.trim().toLowerCase();
+      const rows = [];
+      if (state.showDb) rows.push(...state.dbRows.map(r => ({ row: r, source: 'db' })));
+      rows.push(...state.tempRows.map(r => ({ row: r, source: 'new' })));
+      if (!keyword) return rows;
+      return rows.filter(({ row }) => {
+        return ['日期','微信名','渠道','备注/意向'].some(key => (row[key] || '').toLowerCase().includes(keyword));
+      });
+    }
+
+    function renderRows() {
+      const rows = getFilteredRows();
+      tbody.innerHTML = '';
+      rows.forEach(({ row, source }) => tbody.appendChild(createRow(row, source)));
+      const totalDb = state.dbRows.length;
+      const totalTemp = state.tempRows.length;
+      setStatus(`显示 ${rows.length} 条 | 数据库 ${totalDb} 条 | 新加载 ${totalTemp} 条`);
+    }
+
+    async function loadContacts() {
+      setStatus('加载历史数据...');
+      const resp = await fetch('/api/contacts');
+      const data = await resp.json();
+      state.dbRows = (data.rows || []).map(r => ({ ...r }));
+      renderRows();
+    }
+
+    document.getElementById('btn-ocr').onclick = async () => {
+      const files = document.getElementById('images').files;
+      if (!files.length) {
+        alert('请先选择图片');
+        return;
+      }
+      setStatus('正在解析图片...');
+      const formData = new FormData();
+      Array.from(files).forEach(file => formData.append('images', file));
+      const resp = await fetch('/api/ocr', { method: 'POST', body: formData });
+      const data = await resp.json();
+      const rows = data.rows || [];
+      rows.forEach(row => state.tempRows.push({ ...row }));
+      renderRows();
+      setStatus(`新增 ${rows.length} 条 OCR 结果（未保存）`);
+    };
+
+    document.getElementById('btn-save').onclick = async () => {
+      if (!state.tempRows.length) {
+        setStatus('没有需要保存的新加载数据');
+        return;
+      }
+      setStatus('正在保存加载项...');
+      const resp = await fetch('/api/contacts/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: state.tempRows })
+      });
+      const data = await resp.json();
+      const saved = data.rows || [];
+      state.dbRows.unshift(...saved.map(r => ({ ...r }))); // prepend newly saved
+      state.tempRows = [];
+      renderRows();
+      setStatus(`保存成功，写入 ${saved.length} 条新数据`);
+    };
+
+    document.getElementById('btn-add').onclick = () => {
+      state.tempRows.unshift({ '日期': '', '微信名': '', '渠道': '', '备注/意向': '' });
+      renderRows();
+      setStatus('已新增空行（未保存）');
+    };
+
+    document.getElementById('btn-refresh').onclick = () => {
+      loadContacts();
+    };
+
+    document.getElementById('btn-export').onclick = async () => {
+      const visibleRows = getFilteredRows().map(({ row }) => ({ ...row }));
+      if (!visibleRows.length) {
+        setStatus('没有可导出的条目');
+        return;
+      }
+      setStatus('正在导出当前显示的条目...');
+      const resp = await fetch('/api/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: visibleRows })
+      });
+      if (!resp.ok) {
+        setStatus('导出失败');
+        return;
+      }
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'contacts.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      setStatus(`导出完成，共 ${visibleRows.length} 条`);
+    };
+
+    document.getElementById('keyword').oninput = (e) => {
+      state.keyword = e.target.value;
+      renderRows();
+    };
+
+    document.getElementById('toggle-db').onchange = (e) => {
+      state.showDb = e.target.checked;
+      renderRows();
+    };
+
+    document.addEventListener('DOMContentLoaded', loadContacts);
+  </script>
+</body>
+</html>
